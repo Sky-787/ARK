@@ -1,44 +1,46 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-
-@Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
-})
-export class AppModule {}
-/*
-import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { envs } from './config/envs.config';
+import { getTypeOrmConfig } from './config/typeorm.config';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
+import { RolesModule } from './modules/roles/roles.module';
+import { UsersModule } from './modules/users/users.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
-    // 1. Inicializamos el módulo de configuración para leer el archivo .env
     ConfigModule.forRoot({
-      isGlobal: true, 
+      isGlobal: true,
+      load: [envs],
     }),
-    
-    // 2. Configuramos TypeORM de forma asíncrona para que lea la variable de entorno
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get<string>('DATABASE_URL'), // Lee la URL del .env
-        autoLoadEntities: true, // Carga automáticamente tus entidades
-        synchronize: true, // Sincroniza los cambios (ÚTIL EN DESARROLLO, DESACTIVAR EN PRODUCCIÓN)
-        ssl: {
-          rejectUnauthorized: false, // Requerido por Supabase para aceptar la conexión SSL
-        },
+        ...getTypeOrmConfig(configService),
+        autoLoadEntities: true,
       }),
     }),
+    RolesModule,
+    UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+  ],
 })
 export class AppModule {}
-*/
